@@ -1,9 +1,19 @@
 <?php
-header("Access-Control-Allow-Origin: *");
-header("Content-Type: application/json; charset=UTF-8");
-header("Access-Control-Allow-Methods: POST, GET, PUT, DELETE");
-header("Access-Control-Allow-Headers: Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With");
+// Handle preflight CORS
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    header("Access-Control-Allow-Origin: *");
+    header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
+    header("Access-Control-Allow-Headers: Content-Type");
+    exit(0);
+}
 
+// General CORS and response headers
+header("Access-Control-Allow-Origin: *");
+header("Content-Type: application/json");
+header("Access-Control-Allow-Methods: GET, POST");
+header("Access-Control-Allow-Headers: Content-Type");
+
+// DB connection
 $servername = "localhost";
 $username = "root";
 $password = "root";
@@ -12,78 +22,70 @@ $dbname = "tunetalk";
 $conn = new mysqli($servername, $username, $password, $dbname);
 
 if ($conn->connect_error) {
-    die("Connection failed: " . $conn->connect_error);
+    echo json_encode(["success" => false, "error" => "Database connection failed"]);
+    exit;
 }
 
 $method = $_SERVER['REQUEST_METHOD'];
 
 switch ($method) {
     case 'GET':
-        handleGetRequest($conn);
-        break;
-    case 'POST':
-        handlePostRequest($conn);
-        break;
-    case 'PUT':
-        handlePutRequest($conn);
-        break;
-    case 'DELETE':
-        handleDeleteRequest($conn);
-        break;
-    default:
-        echo json_encode(["message" => "Method not allowed"]);
-        break;
-}
+        // GET profile by user_id
+        $userId = $_GET['user_id'] ?? null;
 
-function handleGetRequest($conn) {
-    $id = $_GET['id'] ?? null;
-    if ($id) {
-        $stmt = $conn->prepare("SELECT * FROM users WHERE id = ?");
-        $stmt->bind_param("i", $id);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        echo json_encode($result->fetch_assoc());
-    } else {
-        $result = $conn->query("SELECT * FROM users");
-        $users = [];
-        while ($row = $result->fetch_assoc()) {
-            $users[] = $row;
+        if ($userId) {
+            $stmt = $conn->prepare("SELECT * FROM profiles WHERE user_id = ?");
+            $stmt->bind_param("i", $userId);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            $profile = $result->fetch_assoc();
+
+            echo json_encode([
+                "success" => true,
+                "profile" => $profile ?: null
+            ]);
+        } else {
+            echo json_encode(["success" => false, "error" => "Missing user_id"]);
         }
-        echo json_encode($users);
-    }
-}
+        break;
 
-function handlePostRequest($conn) {
-    $data = json_decode(file_get_contents("php://input"), true);
-    $stmt = $conn->prepare("INSERT INTO users (username, email, bio, profile_picture) VALUES (?, ?, ?, ?)");
-    $stmt->bind_param("ssss", $data['username'], $data['email'], $data['bio'], $data['profile_picture']);
-    if ($stmt->execute()) {
-        echo json_encode(["message" => "User created successfully"]);
-    } else {
-        echo json_encode(["message" => "Error creating user"]);
-    }
-}
+    case 'POST':
+        // Create or update profile
+        $data = json_decode(file_get_contents("php://input"), true);
 
-function handlePutRequest($conn) {
-    $data = json_decode(file_get_contents("php://input"), true);
-    $stmt = $conn->prepare("UPDATE users SET username = ?, email = ?, bio = ?, profile_picture = ? WHERE id = ?");
-    $stmt->bind_param("ssssi", $data['username'], $data['email'], $data['bio'], $data['profile_picture'], $data['id']);
-    if ($stmt->execute()) {
-        echo json_encode(["message" => "User updated successfully"]);
-    } else {
-        echo json_encode(["message" => "Error updating user"]);
-    }
-}
+        $userId = $data['user_id'] ?? null;
+        $avatar = $data['avatar'] ?? null;
+        $bio = $data['bio'] ?? null;
+        $caption = $data['caption'] ?? null;
 
-function handleDeleteRequest($conn) {
-    $data = json_decode(file_get_contents("php://input"), true);
-    $stmt = $conn->prepare("DELETE FROM users WHERE id = ?");
-    $stmt->bind_param("i", $data['id']);
-    if ($stmt->execute()) {
-        echo json_encode(["message" => "User deleted successfully"]);
-    } else {
-        echo json_encode(["message" => "Error deleting user"]);
-    }
+        if (!$userId) {
+            echo json_encode(["success" => false, "error" => "Missing user_id"]);
+            break;
+        }
+
+        // Check if profile exists
+        $check = $conn->prepare("SELECT id FROM profiles WHERE user_id = ?");
+        $check->bind_param("i", $userId);
+        $check->execute();
+        $result = $check->get_result();
+
+        if ($result->num_rows > 0) {
+            // Update existing profile
+            $stmt = $conn->prepare("UPDATE profiles SET avatar = ?, bio = ?, caption = ? WHERE user_id = ?");
+            $stmt->bind_param("sssi", $avatar, $bio, $caption, $userId);
+        } else {
+            // Insert new profile
+            $stmt = $conn->prepare("INSERT INTO profiles (user_id, avatar, bio, caption) VALUES (?, ?, ?, ?)");
+            $stmt->bind_param("isss", $userId, $avatar, $bio, $caption);
+        }
+
+        if ($stmt->execute()) {
+            echo json_encode(["success" => true, "message" => "Profile saved"]);
+        } else {
+            echo json_encode(["success" => false, "error" => "Profile save failed"]);
+        }
+
+        break;
 }
 
 $conn->close();

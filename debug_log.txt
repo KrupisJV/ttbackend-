@@ -1,0 +1,30 @@
+Script reached
+Raw input: 
+Parsed: Session user_id: NOT SET
+❌ Invalid input or not logged in
+Script reached
+Raw input: 
+Parsed: Session user_id: NOT SET
+❌ Invalid input or not logged in
+Script reached
+Raw input: {"post_id":51,"content":"dsadasd"}
+Parsed: Array
+(
+    [post_id] => 51
+    [content] => dsadasd
+)
+Session user_id: NOT SET
+❌ Invalid input or not logged in
+Script reached
+Raw input: 
+Parsed: Session user_id: NOT SET
+❌ Invalid input or not logged in
+Script reached
+Raw input: {"post_id":51,"content":"dasddsa"}
+Parsed: Array
+(
+    [post_id] => 51
+    [content] => dasddsa
+)
+Session user_id: NOT SET
+❌ Invalid input or not logged in

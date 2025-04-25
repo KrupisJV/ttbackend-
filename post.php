@@ -1,32 +1,24 @@
 <?php
+// header("Access-Control-Allow-Origin: *");
+// header("Access-Control-Allow-Methods: *");
+// header("Access-Control-Allow-Headers: Content-Type");
 header("Access-Control-Allow-Origin: *");
-header("Access-Control-Allow-Methods: *");
-header("Access-Control-Allow-Headers: Content-Type");
+header("Content-Type: application/json");
 
-// Increase upload limits dynamically
+
 ini_set('upload_max_filesize', '100M');
 ini_set('post_max_size', '100M');
 ini_set('max_execution_time', '300');
 ini_set('max_input_time', '300');
 
-$servername = "localhost";
-$username = "root";
-$password = "root";
-$dbname = "tunetalk";
-
-$conn = new mysqli($servername, $username, $password, $dbname);
-
-if ($conn->connect_error) {
-    die(json_encode(["error" => "Connection failed: " . $conn->connect_error]));
-}
+require_once 'db.php';
 
 $requestMethod = $_SERVER['REQUEST_METHOD'];
 
 if ($requestMethod === 'POST' && isset($_POST['title'])) {
-    // Create a new post
-    $title = $conn->real_escape_string($_POST['title']);
-    $content = $conn->real_escape_string($_POST['content']);
-    $author = $conn->real_escape_string($_POST['author']);
+    $title = $_POST['title'];
+    $content = $_POST['content'];
+    $author = $_POST['author_id'];
     $file = $_FILES['image'];
 
     if (empty($title) || empty($content) || empty($author) || empty($file)) {
@@ -50,18 +42,21 @@ if ($requestMethod === 'POST' && isset($_POST['title'])) {
         exit();
     }
 
-    if ($file['size'] > 100 * 1024 * 1024) { // 100MB limit
+    if ($file['size'] > 100 * 1024 * 1024) {
         echo json_encode(["error" => "File size exceeds 100MB."]);
         http_response_code(400);
         exit();
     }
 
     if (move_uploaded_file($file['tmp_name'], $filePath)) {
-        $sql = "INSERT INTO posts (title, content, author, image, likes) VALUES ('$title', '$content', '$author', '$filePath', 0)";
-        if ($conn->query($sql) === TRUE) {
+        $sql = "INSERT INTO posts (title, content, author_id, image, likes) VALUES (:title, :content, :author_id, :image, 0)";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute(['title' => $title, 'content' => $content, 'author_id' => $author, 'image' => $filePath]);
+
+        if ($stmt->rowCount() > 0) {
             echo json_encode(["success" => "Post created successfully.", "image_url" => $filePath]);
         } else {
-            echo json_encode(["error" => "Database error: " . $conn->error]);
+            echo json_encode(["error" => "Database error: " . $pdo->errorInfo()[2]]);
         }
     } else {
         echo json_encode(["error" => "Failed to upload the file."]);
@@ -70,54 +65,61 @@ if ($requestMethod === 'POST' && isset($_POST['title'])) {
 } elseif ($requestMethod === 'DELETE') {
     // Delete a post
     $data = json_decode(file_get_contents("php://input"), true);
-    $id = $conn->real_escape_string($data['id']);
+    $id = $pdo->quote($data['id']);
 
-    $sql = "SELECT image FROM posts WHERE id = '$id'";
-    $result = $conn->query($sql);
-    $row = $result->fetch_assoc();
-    
+    $sql = "SELECT image FROM posts WHERE id = $id";
+    $stmt = $pdo->query($sql);
+    $row = $stmt->fetch();
+
     if ($row && file_exists($row['image'])) {
-        unlink($row['image']); // Delete the image file
+        unlink($row['image']);
     }
 
-    $deleteSql = "DELETE FROM posts WHERE id = '$id'";
-    if ($conn->query($deleteSql) === TRUE) {
+    $deleteSql = "DELETE FROM posts WHERE id = $id";
+    if ($pdo->exec($deleteSql)) {
         echo json_encode(["success" => "Post deleted successfully."]);
     } else {
-        echo json_encode(["error" => "Database error: " . $conn->error]);
+        echo json_encode(["error" => "Database error: " . $pdo->errorInfo()[2]]);
     }
 
 } elseif ($requestMethod === 'GET') {
-    // Fetch all posts
-    $sql = "SELECT id, title, content, author, image, likes FROM posts";
-    $result = $conn->query($sql);
+
+    $sql = "SELECT id, title, content, author_id, image, likes FROM posts";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([]);
 
     $posts = [];
-    while ($row = $result->fetch_assoc()) {
+    while ($row = $stmt->fetch()) {
         $posts[] = $row;
     }
 
     echo json_encode($posts);
 
 } elseif ($requestMethod === 'PATCH') {
-    // Handle liking a post
     $data = json_decode(file_get_contents("php://input"), true);
-    
+
     if (isset($data['post_id'])) {
         $postId = intval($data['post_id']);
-        
-        $query = "UPDATE posts SET likes = likes + 1 WHERE id = $postId";
-        if ($conn->query($query)) {
-            $result = $conn->query("SELECT likes FROM posts WHERE id = $postId");
-            $row = $result->fetch_assoc();
+
+        $checkPostQuery = "SELECT id FROM posts WHERE id = :post_id";
+        $stmt = $pdo->prepare($checkPostQuery);
+        $stmt->execute(['post_id' => $postId]);
+
+        if ($stmt->rowCount() > 0) {
+            $query = "UPDATE posts SET likes = likes + 1 WHERE id = :post_id";
+            $stmt = $pdo->prepare($query);
+            $stmt->execute(['post_id' => $postId]);
+
+            $stmt = $pdo->prepare("SELECT likes FROM posts WHERE id = :post_id");
+            $stmt->execute(['post_id' => $postId]);
+            $row = $stmt->fetch();
+
             echo json_encode(["likes" => $row["likes"]]);
         } else {
-            echo json_encode(["error" => "Failed to update likes"]);
+            echo json_encode(["error" => "Post not found"]);
         }
     } else {
         echo json_encode(["error" => "Invalid request"]);
     }
 }
-
-$conn->close();
 ?>
