@@ -14,10 +14,10 @@ header("Access-Control-Allow-Methods: GET, POST");
 header("Access-Control-Allow-Headers: Content-Type");
 
 // DB connection
-$servername = "localhost";
-$username = "root";
-$password = "root";
-$dbname = "tunetalk";
+$host = 'ftp.kantanudarznieciba.lv';
+$db = 'tunetalk';
+$user = 'krupis@tune.kantans.com';
+$pass = 'WhMdovFD9ljH';
 
 $conn = new mysqli($servername, $username, $password, $dbname);
 

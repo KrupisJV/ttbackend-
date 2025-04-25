@@ -1,8 +1,8 @@
 <?php
-$host = 'localhost';
-$db   = 'tunetalk';
-$user = 'root';
-$pass = 'root';
+$host = 'ftp.kantanudarznieciba.lv';
+$db = 'tunetalk';
+$user = 'krupis@tune.kantans.com';
+$pass = 'WhMdovFD9ljH';
 $charset = 'utf8mb4';
 
 $dsn = "mysql:host=$host;dbname=$db;charset=$charset";

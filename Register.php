@@ -3,10 +3,10 @@ header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: POST, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type, Authorization");
 
-$servername = "localhost";
-$username = "root";
-$password = "root";
-$dbname = "tunetalk";
+$host = 'ftp.kantanudarznieciba.lv';
+$db = 'tunetalk';
+$user = 'krupis@tune.kantans.com';
+$pass = 'WhMdovFD9ljH';
 
 $conn = new mysqli($servername, $username, $password, $dbname);
 

@@ -1,9 +1,9 @@
 <?php
 // Database connection settings
-$host = 'localhost';
+$host = 'ftp.kantanudarznieciba.lv';
 $db = 'tunetalk';
-$user = 'root';
-$pass = 'root';
+$user = 'krupis@tune.kantans.com';
+$pass = 'WhMdovFD9ljH';
 
 try {
     // Create a new PDO instance
